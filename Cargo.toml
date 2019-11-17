@@ -1,0 +1,26 @@
+[package]
+name = "editor2"
+version = "0.1.0"
+authors = ["bergfink"]
+edition = "2018"
+
+
+[features]
+required-features = ["unsafe_textures"]
+unsafe_textures = []
+ 
+ttf = ["sdl2-sys/ttf"]
+gfx = ["sdl2-sys/gfx"]
+
+use-bindgen = ["sdl2-sys/use-bindgen"]
+use-pkgconfig = ["sdl2-sys/use-pkgconfig"]
+bundled = ["sdl2-sys/bundled"]
+static-link= ["sdl2-sys/static-link"]
+
+[dependencies.sdl2]
+version = "0.32"
+default-features = false
+features = ["ttf", "gfx", "unsafe_textures"]
+
+[dependencies.sdl2-sys]
+ version = "^0.32"
