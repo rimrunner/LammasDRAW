@@ -10,8 +10,13 @@ a multi party digital communication. ANSI art is still being made in the
 demoscene as a form of underground art.
 
 This project is currently under work.
-Right now it is possible to draw characters to fixed sized screen and change 
+Right now it is possible to draw characters to a fixed sized screen and change 
 their colors but it is not yet possible to choose characters itself. This will
 be implemented next.
 
-The project uses SDL Rust bindings and a code page 437 font file created by Zeh Fernando 
+The project uses SDL Rust bindings and a code page 437 font file created by Zeh Fernando
+
+Instructions:
+use the ttf font file as an argument when running the program
+use cursor keys for controlling the cursor and letter keys for other commands
+documentation is coming up when the initial version of the user interface is completed 
