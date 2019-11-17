@@ -1,6 +1,6 @@
 # LammasDRAW
 
-This is a Rust language practice project which is an ANSI Editor
+This is a Rust language practice project, an ANSI Editor
 - a program to make drawings by using ANSI characters 
 (code page 437, the character set of the original IBM PC), 256 characters 
 (minus few control characters) with 16 foreground and 8 background colors.
