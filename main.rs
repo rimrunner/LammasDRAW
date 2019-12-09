@@ -1,9 +1,20 @@
 /*
 cargo run --features unsafe_textures
 
--PULMA: kun piirsi pelkän charin (drawmode: "char") tyhjälle ruudulle, se ehkä piirtyi joko mustaksi (oliko joku musta oletusväri päällä?) tai sitten muutti pelkän gridunitin char-muuttujan eikä muuta. mitäköhän tässä pitäisi tapahtua? Ehkä ei saa olla mahdollista, että charcolor ja bgcolor on sama, koska muutenhan voi niitä jäädä pimentoon ja niitä sitten seivaillaan turhaan. Joo, pitää tehdä tarkistus tuohon, että onko värit samat.
+-Missä mennään:
+-box selector -kursorin voisi laittaa menemään nätisti
+-Voisi tehdä loputkin käskyt tuota uutta käyttöliittymäratkaisua varten
 
--Nyt voi valita boxeihin charcolorin, sitten pitäis saada backcolor. ja myös toiminnot, että voi suoraan painaa värin johonkin boxiin ilman välivaihetta. Sitten merkinvalinta (siinä chartablen pohjalta voisi tehdä sen valintaruudunkin).
+-Ei ole testattu taustavärin valintaa eikä suoria värivalintakomentoja
+
+-chartable
+--toiminto, josta vaihtuu boxin 1-5 char suoraan ja toiminto, joka käyttää shiftiä
+--merkin voi valita ihan vaan heittämällä ne numerot ...mutta tämähän vaatii teksti-inputin luomisen
+--tai sitten aukeaa se valintaruutu. Siinä olisi tosiaan kätevä käyttää sitä taulukkoa
+-char-valintaruutu
+--render screen()iin program moden (interfacen muuttuja) perusteella täysin toinen haara
+--eri kursorimuuttujat siihen ja kursorinapinpainalluksiin myös se program mode
+--sitten se valintaruudun piirto
 
 -Värin valinta: oma nappi cc ja bc värien valinnalle ja sitten menee värinvalinta päälle
 -Sitten voi tehdä myös toiminnot, että suoraan valitse cc/bc charboxiin 1 jne.
@@ -20,6 +31,8 @@ cargo run --features unsafe_textures
 -pitäisikö indekseihin mennä aina varovaisella get-menetelmällä?
 -ohjelmassa voi piirtää tyhjään ruutuun pelkän taustavärin, mutta se pitäisi kai säilyttää ruudun täyttävänä palkkina? Mutta hetkinen. Tuleeko tässä ongelma, jos taustavärit on eri värejä? Ei tule, jos taustavärit on samoja, kuin mitä muut värit ovat.
 -Onko ansiartissa vakiovärit vai pitääkö tehdä värinvalinta
+
+-PULMA: kun piirsi pelkän charin (drawmode: "char") tyhjälle ruudulle, se ehkä piirtyi joko mustaksi (oliko joku musta oletusväri päällä?) tai sitten muutti pelkän gridunitin char-muuttujan eikä muuta. mitäköhän tässä pitäisi tapahtua? Ehkä ei saa olla mahdollista, että charcolor ja bgcolor on sama, koska muutenhan voi niitä jäädä pimentoon ja niitä sitten seivaillaan turhaan. Joo, pitää tehdä tarkistus tuohon, että onko värit samat.
 
 https://rust-sdl2.github.io/rust-sdl2/sdl2/keyboard/enum.Keycode.html
 
@@ -182,6 +195,15 @@ fn render_screen(font_path: &Path, mut sdl_master: &mut SDLMasterVars, mut gridv
     sdl_master.canvas.set_draw_color(Color::RGBA(0, 0, 0, 255));
     sdl_master.canvas.clear();
 
+    let tempwin = sdl_master.canvas.window_mut();
+    let size = tempwin.size();
+    let winwidth = size.0;
+    let winheight = size.1;
+
+    //Cursor colors
+    let curcol1 = Color::RGBA(100, 100, 100, 255); //Gray
+    let curcol2 = Color::RGBA(255, 0, 0, 255); //Red
+
     //let sdl2::render::TextureQuery { width, height, .. } = texture.query();
 
     // If the example text is too big for the screen, downscale it (and center irregardless)
@@ -189,161 +211,215 @@ fn render_screen(font_path: &Path, mut sdl_master: &mut SDLMasterVars, mut gridv
     //let padding = 64;
     //let target = get_centered_rect(width, height, SCREEN_WIDTH - padding, SCREEN_HEIGHT - padding);
 
-    let tempwin = sdl_master.canvas.window_mut();
-    let size = tempwin.size();
-    let winwidth = size.0;
-    let winheight = size.1;
+    if iface.program_mode == 1 || iface.program_mode == 2 { //1 = Normal drawing mode, 2 = ANSI char select screen
     
-    //Pitäisikö tämä siirtää interfaceen?
-    let panel = Rect::new(0 as i32, (winheight-100) as i32, (gridvars.char_w*(gridvars.grid_x as i16)) as u32, winheight as u32);
-    //SDL_SetRenderDrawColor(piirturi, 0xFF, 0xA5, 0x00, 0x00);
-    sdl_master.canvas.set_draw_color(Color::RGBA(130, 130, 130, 255));
-    sdl_master.canvas.fill_rect(panel)?;
+        //Pitäisikö tämä siirtää interfaceen?
+        let panel = Rect::new(0 as i32, (winheight-100) as i32, (gridvars.char_w*(gridvars.grid_x as i16)) as u32, winheight as u32);
+        //SDL_SetRenderDrawColor(piirturi, 0xFF, 0xA5, 0x00, 0x00);
+        sdl_master.canvas.set_draw_color(Color::RGBA(130, 130, 130, 255));
+        sdl_master.canvas.fill_rect(panel)?;
 
-    //Rendering palette
-    let mut palrect = Rect::new((winwidth-16) as i32, (winheight-26) as i32, 16, 16);
-    if let Some(color) = sdl_master.colortable.get(&16) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&15) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&14) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&13) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&12) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&11) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&10) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&9) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&8) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&7) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&6) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&5) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&4) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&3) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&2) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
-    palrect.x = palrect.x-16;
-    if let Some(color) = sdl_master.colortable.get(&1) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(palrect)?;
+        //Rendering palette
+        let mut palrect = Rect::new((winwidth-16) as i32, (winheight-26) as i32, 16, 16);
+        if let Some(color) = sdl_master.colortable.get(&16) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&15) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&14) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&13) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&12) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&11) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&10) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&9) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&8) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&7) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&6) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&5) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&4) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&3) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&2) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
+        palrect.x = palrect.x-16;
+        if let Some(color) = sdl_master.colortable.get(&1) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(palrect)?;
 
-    //Rendering color and char boxes to the panel
-    //-Merkit väreineen ja taustaväreineen
-    //Ensin rendataan ne taustat
-    let charbox1 = Rect::new(10, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
-    let charbox2 = Rect::new(30, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
-    let charbox3 = Rect::new(50, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
-    let charbox4 = Rect::new(70, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
-    let charbox5 = Rect::new(90, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
+        //Rendering color and char boxes to the panel
+        //-Merkit väreineen ja taustaväreineen
+        //Ensin rendataan ne taustat
+        let charbox1 = Rect::new(10, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
+        let charbox2 = Rect::new(30, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
+        let charbox3 = Rect::new(50, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
+        let charbox4 = Rect::new(70, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
+        let charbox5 = Rect::new(90, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, gridvars.char_w as u32, gridvars.char_h as u32);
 
-    if let Some(color) = sdl_master.colortable.get(&iface.bcolor1) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(charbox1)?;
-    if let Some(color) = sdl_master.colortable.get(&iface.bcolor2) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(charbox2)?;
-    if let Some(color) = sdl_master.colortable.get(&iface.bcolor3) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(charbox3)?;
-    if let Some(color) = sdl_master.colortable.get(&iface.bcolor4) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(charbox4)?;
-    if let Some(color) = sdl_master.colortable.get(&iface.bcolor5) {sdl_master.canvas.set_draw_color(color.clone());}
-    sdl_master.canvas.fill_rect(charbox5)?;
+        if let Some(color) = sdl_master.colortable.get(&iface.bcolor1) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(charbox1)?;
+        if let Some(color) = sdl_master.colortable.get(&iface.bcolor2) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(charbox2)?;
+        if let Some(color) = sdl_master.colortable.get(&iface.bcolor3) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(charbox3)?;
+        if let Some(color) = sdl_master.colortable.get(&iface.bcolor4) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(charbox4)?;
+        if let Some(color) = sdl_master.colortable.get(&iface.bcolor5) {sdl_master.canvas.set_draw_color(color.clone());}
+        sdl_master.canvas.fill_rect(charbox5)?;
 
-    if let Some(pb1) = iface.panelbox1.as_ref() {sdl_master.canvas.copy(pb1, None, charbox1);}
-    if let Some(pb2) = iface.panelbox2.as_ref() {sdl_master.canvas.copy(pb2, None, charbox2);}
-    if let Some(pb3) = iface.panelbox3.as_ref() {sdl_master.canvas.copy(pb3, None, charbox3);}
-    if let Some(pb4) = iface.panelbox4.as_ref() {sdl_master.canvas.copy(pb4, None, charbox4);}
-    if let Some(pb5) = iface.panelbox5.as_ref() {sdl_master.canvas.copy(pb5, None, charbox5);}
+        if let Some(pb1) = iface.panelbox1.as_ref() {sdl_master.canvas.copy(pb1, None, charbox1);}
+        if let Some(pb2) = iface.panelbox2.as_ref() {sdl_master.canvas.copy(pb2, None, charbox2);}
+        if let Some(pb3) = iface.panelbox3.as_ref() {sdl_master.canvas.copy(pb3, None, charbox3);}
+        if let Some(pb4) = iface.panelbox4.as_ref() {sdl_master.canvas.copy(pb4, None, charbox4);}
+        if let Some(pb5) = iface.panelbox5.as_ref() {sdl_master.canvas.copy(pb5, None, charbox5);}
 
-    let drawmode_surface = sdl_master.font.render("|ALL | CHAR+COL | CHAR | BG | CHARCOL|").blended(Color::RGBA(0, 0, 0, 255)).map_err(|e| e.to_string())?;
-    let drawmode_text = sdl_master.texture_creator.create_texture_from_surface(drawmode_surface).map_err(|e| e.to_string())? ;
-    let dmrect = Rect::new(120, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, 191, 17);
-    sdl_master.canvas.copy(&drawmode_text, None, dmrect)?;
+        let drawmode_surface = sdl_master.font.render("|ALL | CHAR+COL | CHAR | BG | CHARCOL|").blended(Color::RGBA(0, 0, 0, 255)).map_err(|e| e.to_string())?;
+        let drawmode_text = sdl_master.texture_creator.create_texture_from_surface(drawmode_surface).map_err(|e| e.to_string())? ;
+        let dmrect = Rect::new(120, (gridvars.char_w*(gridvars.grid_y as i16)) as i32, 191, 17);
+        sdl_master.canvas.copy(&drawmode_text, None, dmrect)?;
 
-    //Drawmode pointer
-    sdl_master.canvas.set_draw_color(Color::RGBA(255, 0, 0, 255)); //Red pointer
-    let mut dmselrect = Rect::new(126, ((gridvars.char_w*(gridvars.grid_y as i16)+14 as i16)) as i32, 10, 4);
-    if iface.dm_selector == 1 {dmselrect.x = dmselrect.x + 5;}
-    else if iface.dm_selector == 2 {dmselrect.x = dmselrect.x + 40;}
-    else if iface.dm_selector == 3 {dmselrect.x = dmselrect.x + 80;}
-    else if iface.dm_selector == 4 {dmselrect.x = dmselrect.x + 120;}
-    else if iface.dm_selector == 5 {dmselrect.x = dmselrect.x + 160;}
-    sdl_master.canvas.fill_rect(dmselrect)?;
+        //Drawmode pointer
+        sdl_master.canvas.set_draw_color(Color::RGBA(255, 0, 0, 255)); //Red pointer
+        let mut dmselrect = Rect::new(126, ((gridvars.char_w*(gridvars.grid_y as i16)+14 as i16)) as i32, 10, 4);
+        if iface.dm_selector == 1 {dmselrect.x = dmselrect.x + 5;}
+        else if iface.dm_selector == 2 {dmselrect.x = dmselrect.x + 40;}
+        else if iface.dm_selector == 3 {dmselrect.x = dmselrect.x + 80;}
+        else if iface.dm_selector == 4 {dmselrect.x = dmselrect.x + 120;}
+        else if iface.dm_selector == 5 {dmselrect.x = dmselrect.x + 160;}
+        sdl_master.canvas.fill_rect(dmselrect)?;
 
-    /*
-    if let Some(dm_image) = iface.drawmode_img {
+        /*
+        if let Some(dm_image) = iface.drawmode_img {
         //Tässä on nyt 191 ja 17 katsottu png-tiedostosta, pitäisikö ne ottaa tekstuurista
         let dmrect = Rect::new((winwidth/2) as i32, (gridvars.char_w*gridvars.grid_y) as i32, 191, 17);
         sdl_master.canvas.copy(&dm_image, None, dmrect)?;
     }
-*/
+         */
 
-    //Character color pointer
-    sdl_master.canvas.set_draw_color(Color::RGBA(255, 0, 0, 255)); //Red pointer
-    let mut ccselrect = Rect::new((winwidth-272) as i32, (winheight-30) as i32, 16, 4);
-    ccselrect.x = ccselrect.x + (16*iface.cc_selector as i32);
-    sdl_master.canvas.fill_rect(ccselrect)?;
+        //Character color pointer
+        sdl_master.canvas.set_draw_color(Color::RGBA(255, 0, 0, 255)); //Red pointer
+        let mut ccselrect = Rect::new((winwidth-272) as i32, (winheight-30) as i32, 16, 4);
+        ccselrect.x = ccselrect.x + (16*iface.cc_selector as i32);
+        sdl_master.canvas.fill_rect(ccselrect)?;
 
-    //Background color pointer
-    sdl_master.canvas.set_draw_color(Color::RGBA(255, 0, 0, 255)); //Red pointer
-    let mut bcselrect = Rect::new((winwidth-272) as i32, (winheight-10) as i32, 16, 4);
-    bcselrect.x = bcselrect.x + (16*iface.bc_selector as i32);
-    sdl_master.canvas.fill_rect(bcselrect)?;
+        //Background color pointer
+        sdl_master.canvas.set_draw_color(Color::RGBA(255, 0, 0, 255)); //Red pointer
+        let mut bcselrect = Rect::new((winwidth-272) as i32, (winheight-10) as i32, 16, 4);
+        bcselrect.x = bcselrect.x + (16*iface.bc_selector as i32);
+        sdl_master.canvas.fill_rect(bcselrect)?;
 
+        //Charbox pointer
+        sdl_master.canvas.set_draw_color(Color::RGBA(255, 0, 0, 255)); //Red pointer
+        let mut cbselrect = Rect::new(0, (gridvars.char_w*((gridvars.grid_y+1) as i16)) as i32, 16, 4);
+        cbselrect.x = cbselrect.x + (16*iface.box_selector as i32);
+        sdl_master.canvas.fill_rect(cbselrect)?;
+        
+        draw_grid(&mut gridvars, &mut gridvec_obj, &mut sdl_master);
+        //change_gridunit_texture(&mut gridvec_obj, &mut sdl_master, 2, 2, Color::RGBA(255, 0, 0, 255));
+
+        if iface.program_mode != 2 { //Drawing cursor is not rendered when selecting a character
+
+        //Rendering the cursor
+        //Upperline
+        sdl_master.canvas.line(iface.cursor_x*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, (iface.cursor_x+1)*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, curcol1);
+        //Left line
+        sdl_master.canvas.line(iface.cursor_x*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, iface.cursor_x*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, curcol1);
+        //Right line
+        sdl_master.canvas.line((iface.cursor_x+1)*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, (iface.cursor_x+1)*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, curcol1);
+        //Bottomline
+        sdl_master.canvas.line(iface.cursor_x*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, (iface.cursor_x+1)*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, curcol1);
+
+        //Inner cursor rectangle
+        //Upperline
+        sdl_master.canvas.line(iface.cursor_x*gridvars.char_w+2 as i16, iface.cursor_y*gridvars.char_h+1 as i16, (iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y*gridvars.char_h)+1 as i16, curcol2);
+        //Left line
+        sdl_master.canvas.line(iface.cursor_x*gridvars.char_w+1 as i16, iface.cursor_y*gridvars.char_h+1 as i16, iface.cursor_x*gridvars.char_w+1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, curcol2);
+        //Right line
+        sdl_master.canvas.line((iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y*gridvars.char_h)+1 as i16, (iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, curcol2);
+        //Bottomline
+            sdl_master.canvas.line(iface.cursor_x*gridvars.char_w+1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, (iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, curcol2);
+
+        }
+
+        if iface.message != "" {
+            message(&mut sdl_master, &iface.message);
+            iface.message = "".to_string();
+        }
     
-    draw_grid(&mut gridvars, &mut gridvec_obj, &mut sdl_master);
-    //change_gridunit_texture(&mut gridvec_obj, &mut sdl_master, 2, 2, Color::RGBA(255, 0, 0, 255));
+        if iface.program_mode == 2 {  //2 = Character selection screen
+            //Character selection screen
+            let x_point = (((winwidth as i16) - iface.charscreenx*gridvars.char_w+1) / 2) as i32;
+            let y_point = 80i32;
+            let mut selectbgrect = Rect::new(x_point, y_point,
+                                             (iface.charscreenx*gridvars.char_w) as u32, ((iface.charscreeny+1)*gridvars.char_h) as u32);
 
-    //Cursor colors
-    let curcol1 = Color::RGBA(100, 100, 100, 255); //Gray
-    let curcol2 = Color::RGBA(255, 0, 0, 255); //Red
-    //Rendering the cursor
-    //Upperline
-    sdl_master.canvas.line(iface.cursor_x*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, (iface.cursor_x+1)*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, curcol1);
-    //Left line
-    sdl_master.canvas.line(iface.cursor_x*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, iface.cursor_x*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, curcol1);
-    //Right line
-    sdl_master.canvas.line((iface.cursor_x+1)*gridvars.char_w as i16, iface.cursor_y*gridvars.char_h as i16, (iface.cursor_x+1)*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, curcol1);
-    //Bottomline
-    sdl_master.canvas.line(iface.cursor_x*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, (iface.cursor_x+1)*gridvars.char_w as i16, (iface.cursor_y+1)*gridvars.char_h as i16, curcol1);
+            let mut ansirect = Rect::new(x_point, y_point,
+                                         gridvars.char_w as u32, gridvars.char_h as u32);
 
-    //Inner cursor rectangle
-    //Upperline
-    sdl_master.canvas.line(iface.cursor_x*gridvars.char_w+2 as i16, iface.cursor_y*gridvars.char_h+1 as i16, (iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y*gridvars.char_h)+1 as i16, curcol2);
-    //Left line
-    sdl_master.canvas.line(iface.cursor_x*gridvars.char_w+1 as i16, iface.cursor_y*gridvars.char_h+1 as i16, iface.cursor_x*gridvars.char_w+1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, curcol2);
-    //Right line
-    sdl_master.canvas.line((iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y*gridvars.char_h)+1 as i16, (iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, curcol2);
-    //Bottomline
-    sdl_master.canvas.line(iface.cursor_x*gridvars.char_w+1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, (iface.cursor_x+1)*gridvars.char_w-1 as i16, (iface.cursor_y+1)*gridvars.char_h-1 as i16, curcol2);
+            sdl_master.canvas.set_draw_color(Color::RGBA(117, 117, 117, 255)); //Gray char select rectangle
+            sdl_master.canvas.fill_rect(selectbgrect)?;
+            
+            for i in 33..255 { //Skipping control characters
 
-    if iface.message != "" {
-        message(&mut sdl_master, &iface.message);
-        iface.message = "".to_string();
+                sdl_master.canvas.copy(&iface.ansi_char_vec[i as usize], None, ansirect);
+
+                if (ansirect.x as u32 + (2*gridvars.char_w as u32)) > ((x_point as u32) + (iface.charscreenx*gridvars.char_w) as u32)  {
+                    
+                    ansirect.y = ansirect.y+(gridvars.char_h as i32)+1;
+                    ansirect.x = (((winwidth as i16) - iface.charscreenx*gridvars.char_w) / 2) as i32;
+                }
+                else {ansirect.x = ansirect.x + (gridvars.char_w as i32);}
+            }
+
+            //Rendering the character selection cursor
+            //Upperline
+            sdl_master.canvas.line((x_point as i16)+(iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(iface.charselector_y as i16)*(gridvars.char_h+1),
+                                   (x_point as i16)+(1+iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(iface.charselector_y as i16)*(gridvars.char_h+1), curcol2);
+            //Left line
+            sdl_master.canvas.line((x_point as i16)+(iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(iface.charselector_y as i16)*(gridvars.char_h+1),
+                                   (x_point as i16)+(iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(1+iface.charselector_y as i16)*(gridvars.char_h+1), curcol2);
+            //Right line
+            sdl_master.canvas.line((x_point as i16)+(1+iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(iface.charselector_y as i16)*(gridvars.char_h+1),
+                                   (x_point as i16)+(1+iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(1+iface.charselector_y as i16)*(gridvars.char_h+1), curcol2);
+            //Bottom line
+            sdl_master.canvas.line((x_point as i16)+(iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(1+iface.charselector_y as i16)*(gridvars.char_h+1),
+                                   (x_point as i16)+(1+iface.charselector_x as i16)*gridvars.char_w,
+                                   (y_point as i16)+(1+iface.charselector_y as i16)*(gridvars.char_h+1), curcol2);
+
+        }
     }
-    
+
     sdl_master.canvas.present();
+        
     Ok(())
 }
 
@@ -366,12 +442,14 @@ fn message(mut sdl_master: &mut SDLMasterVars, msg: &String) -> Result<(), Strin
     Ok(())
 }
 
+
+//This function contains some further init (continuing from main()) and then proceeds to the main loop
 #[cfg(feature = "unsafe_textures")]
 fn master_function(font_path: &Path, mut sdl_master: &mut SDLMasterVars, mut gridvec_obj: &mut Gridvec, mut gridvars: &mut GridMasterVars, mut iface: &mut Interface) -> Result<(), String> {
 
-    let mut actioncode = String::from("");
-    
     //More init procedures
+    init_ansi_textures(&mut iface, &mut sdl_master);
+    
     update_panelbox(sdl_master, &mut iface, 1);
     update_panelbox(sdl_master, &mut iface, 2);
     update_panelbox(sdl_master, &mut iface, 3);
@@ -382,6 +460,8 @@ fn master_function(font_path: &Path, mut sdl_master: &mut SDLMasterVars, mut gri
 
     render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;  //run on tässä koodissa määritelty funktio
 
+    let mut actioncode = String::from("");
+
     'mainloop: loop {
                     let wait_time = std::time::Duration::from_millis(10);
             std::thread::sleep(wait_time);
@@ -390,363 +470,466 @@ fn master_function(font_path: &Path, mut sdl_master: &mut SDLMasterVars, mut gri
             match event {
 
                 Event::KeyDown {keycode: Some(keycode), ..} => {
+                    /*
                     if keycode == Keycode::Escape {
                         break 'mainloop
                     }
-                    else if keycode == Keycode::Right {
-                        //TÄHÄN MIELUUMMIN: OLLAANKO GRIDVEKTORISTA ASTUMASSA ULOS
-                        //TAI JOS TUO gridvars-tarkistus on tehokkaampi, voisihan siihenkin laittaa siten, että se ei mene ulos gridvec-indeksistä
-                        //if gridvec_obj.gridvector[iface.cursor_x+1 as usize]
-//                        if gridvec_obj.(iface.cursor_x as u16)
-                        if (iface.cursor_x as u16) < gridvars.grid_x-1 {
-                            //println!("Cursor x-position is {}", iface.cursor_x);
-                            iface.cursor_x += 1;
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-                    else if keycode == Keycode::Left {
-                        if iface.cursor_x > 0 {
-                            iface.cursor_x -= 1;
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-                    else if keycode == Keycode::Down {
-                        if (iface.cursor_y as u16) < (gridvars.grid_y-1) { //oli <=
-                            //println!("Cursor y-position is {}", iface.cursor_y);
-                            iface.cursor_y += 1;
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-                    else if keycode == Keycode::Up {
-                        if iface.cursor_y > 0 {
-                            iface.cursor_y -= 1;
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-                    else if keycode == Keycode::Z {if let Some(var) = iface.keys.get(&String::from("Z")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::X {if let Some(var) = iface.keys.get(&String::from("X")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::C {if let Some(var) = iface.keys.get(&String::from("C")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::V {if let Some(var) = iface.keys.get(&String::from("V")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::B {if let Some(var) = iface.keys.get(&String::from("B")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::A {if let Some(var) = iface.keys.get(&String::from("A")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::S {if let Some(var) = iface.keys.get(&String::from("S")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::D {if let Some(var) = iface.keys.get(&String::from("D")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::F {if let Some(var) = iface.keys.get(&String::from("F")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::G {if let Some(var) = iface.keys.get(&String::from("G")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::Q {if let Some(var) = iface.keys.get(&String::from("Q")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::W {if let Some(var) = iface.keys.get(&String::from("W")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::E {if let Some(var) = iface.keys.get(&String::from("E")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::R {if let Some(var) = iface.keys.get(&String::from("R")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::T {if let Some(var) = iface.keys.get(&String::from("T")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::Num1 {if let Some(var) = iface.keys.get(&String::from("1")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::Num2 {if let Some(var) = iface.keys.get(&String::from("2")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::Num3 {if let Some(var) = iface.keys.get(&String::from("3")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::Num4 {if let Some(var) = iface.keys.get(&String::from("4")) {actioncode = var.to_string();}}
-                    else if keycode == Keycode::Num5 {if let Some(var) = iface.keys.get(&String::from("5")) {actioncode = var.to_string();}}
+                     */
 
-                    if actioncode == "Paint1" { //Painting depending on drawmode
-                        if iface.shift == 1 {
+                    if iface.program_mode == 1 {
+                        if keycode == Keycode::Right {
+                            //TÄHÄN MIELUUMMIN: OLLAANKO GRIDVEKTORISTA ASTUMASSA ULOS
+                            //TAI JOS TUO gridvars-tarkistus on tehokkaampi, voisihan siihenkin laittaa siten, että se ei mene ulos gridvec-indeksistä
+                            //if gridvec_obj.gridvector[iface.cursor_x+1 as usize]
+                            //                        if gridvec_obj.(iface.cursor_x as u16)
+                            if (iface.cursor_x as u16) < gridvars.grid_x-1 {
+                                //println!("Cursor x-position is {}", iface.cursor_x);
+                                iface.cursor_x += 1;
+                            }
+                        }
+                        else if keycode == Keycode::Left {
+                            if iface.cursor_x > 0 {
+                                iface.cursor_x -= 1;
+                            }
+                        }
+                        else if keycode == Keycode::Down {
+                            if (iface.cursor_y as u16) < (gridvars.grid_y-1) { //oli <=
+                                //println!("Cursor y-position is {}", iface.cursor_y);
+                                iface.cursor_y += 1;
+                            }
+                        }
+                        else if keycode == Keycode::Up {
+                            if iface.cursor_y > 0 {
+                                iface.cursor_y -= 1;
+                            }
+                        }
+                        else if keycode == Keycode::Z {if let Some(var) = iface.keys.get(&String::from("Z")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::X {if let Some(var) = iface.keys.get(&String::from("X")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::C {if let Some(var) = iface.keys.get(&String::from("C")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::V {if let Some(var) = iface.keys.get(&String::from("V")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::B {if let Some(var) = iface.keys.get(&String::from("B")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::A {if let Some(var) = iface.keys.get(&String::from("A")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::S {if let Some(var) = iface.keys.get(&String::from("S")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::D {if let Some(var) = iface.keys.get(&String::from("D")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::F {if let Some(var) = iface.keys.get(&String::from("F")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::G {if let Some(var) = iface.keys.get(&String::from("G")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::Q {if let Some(var) = iface.keys.get(&String::from("Q")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::W {if let Some(var) = iface.keys.get(&String::from("W")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::E {if let Some(var) = iface.keys.get(&String::from("E")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::R {if let Some(var) = iface.keys.get(&String::from("R")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::T {if let Some(var) = iface.keys.get(&String::from("T")) {actioncode = var.to_string();}}
+                        else if keycode == Keycode::Num1 {if let Some(var) = iface.keys.get(&String::from("1")) {actioncode=var.to_string();}}
+                        else if keycode == Keycode::Num2 {if let Some(var) = iface.keys.get(&String::from("2")) {actioncode=var.to_string();}}
+                        else if keycode == Keycode::Num3 {if let Some(var) = iface.keys.get(&String::from("3")) {actioncode=var.to_string();}}
+                        else if keycode == Keycode::Num4 {if let Some(var) = iface.keys.get(&String::from("4")) {actioncode=var.to_string();}}
+                        else if keycode == Keycode::Num5 {if let Some(var) = iface.keys.get(&String::from("5")) {actioncode=var.to_string();}}
+
+                        if actioncode == "Paint1" { //Painting depending on drawmode
+                            if iface.shift == 1 && iface.previous_com == "SelectCharColor" {
+                                iface.fcolor1 = iface.cc_selector;
+                                update_panelbox(sdl_master, &mut iface, 1);
+                            }
+                            else if iface.shift == 1 && iface.previous_com == "SelectBackgroundColor" {
+                                iface.bcolor1 = iface.bc_selector;
+                                update_panelbox(sdl_master, &mut iface, 1);
+                            }
+                            else if iface.dm_selector == 1 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor1);
+                            }
+                            else if iface.dm_selector == 2 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
+                            }
+                            else if iface.dm_selector == 3 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
+                                change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                            }
+                            else if iface.dm_selector == 4 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor1);
+                            }
+                            else if iface.dm_selector == 5 {
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
+                            }
+                        }
+
+                        else if actioncode == "Paint2" {
+                            if iface.shift == 1 && iface.previous_com == "SelectCharColor" {
+                                iface.fcolor2 = iface.cc_selector;
+                                update_panelbox(sdl_master, &mut iface, 2);
+                            }
+                            else if iface.shift == 1 && iface.previous_com == "SelectBackgroundColor" {
+                                iface.bcolor2 = iface.bc_selector;
+                                update_panelbox(sdl_master, &mut iface, 2);
+                            }
+                            else if iface.dm_selector == 1 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor2);
+                            }
+                            else if iface.dm_selector == 2 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
+                            }
+                            else if iface.dm_selector == 3 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
+                                change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                            }
+                            else if iface.dm_selector == 4 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor2);
+                            }
+                            else if iface.dm_selector == 5 {
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
+                            }
+                        }
+
+                        else if actioncode == "Paint3" {
+                            if iface.shift == 1 && iface.previous_com == "SelectCharColor" {
+                                iface.fcolor3 = iface.cc_selector;
+                                update_panelbox(sdl_master, &mut iface, 3);
+                            }
+                            else if iface.shift == 1 && iface.previous_com == "SelectBackgroundColor" {
+                                iface.bcolor3 = iface.bc_selector;
+                                update_panelbox(sdl_master, &mut iface, 3);
+                            }
+                            else if iface.dm_selector == 1 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor3);
+                            }
+                            else if iface.dm_selector == 2 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
+                            }
+                            else if iface.dm_selector == 3 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
+                                change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                            }
+                            else if iface.dm_selector == 4 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor3);
+                            }
+                            else if iface.dm_selector == 5 {
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
+                            }
+                        }
+
+                        else if actioncode == "Paint4" {
+                            if iface.shift == 1 && iface.previous_com == "SelectCharColor" {
+                                iface.fcolor4 = iface.cc_selector;
+                                update_panelbox(sdl_master, &mut iface, 4);
+                            }
+                            else if iface.shift == 1 && iface.previous_com == "SelectBackgroundColor" {
+                                iface.bcolor4 = iface.bc_selector;
+                                update_panelbox(sdl_master, &mut iface, 4);
+                            }
+                            else if iface.dm_selector == 1 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor4);
+                            }
+                            else if iface.dm_selector == 2 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
+                            }
+                            else if iface.dm_selector == 3 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
+                                change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                            }
+                            else if iface.dm_selector == 4 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor4);
+                            }
+                            else if iface.dm_selector == 5 {
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
+                            }
+                        }
+
+                        else if actioncode == "Paint5" {
+                            if iface.shift == 1 && iface.previous_com == "SelectCharColor" {
+                                iface.fcolor5 = iface.cc_selector;
+                                update_panelbox(sdl_master, &mut iface, 5);
+                            }
+                            else if iface.shift == 1 && iface.previous_com == "SelectBackgroundColor" {
+                                iface.bcolor5 = iface.bc_selector;
+                                update_panelbox(sdl_master, &mut iface, 5);
+                            }
+                            else if iface.dm_selector == 1 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor5);
+                            }
+                            else if iface.dm_selector == 2 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
+                            }
+                            else if iface.dm_selector == 3 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
+                                change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                            }
+                            else if iface.dm_selector == 4 {
+                                gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor5);
+                            }
+                            else if iface.dm_selector == 5 {
+                                change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
+                            }
+                        }
+
+                        else if actioncode == "SelectCharColor" {
+                            iface.message = "Select charbox for character color".to_string();
+                            iface.shift = 2;
+                            iface.previous_com = "SelectCharColor".to_string();
+                            
+                        }
+                        else if actioncode == "SelectBackgroundColor" {
+                            iface.message = "Select charbox for background color".to_string();
+                            iface.shift = 2;
+                            iface.previous_com = "SelectBackgroundColor".to_string();
+                        }
+                        else if actioncode == "CharColorToBox1" { //Directly sets char color pointed by a charcolor cursor to box 1
                             iface.fcolor1 = iface.cc_selector;
                             update_panelbox(sdl_master, &mut iface, 1);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
-                        else if iface.dm_selector == 1 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor1);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 2 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 3 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
-                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 4 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor1);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 5 {
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-
-                    else if actioncode == "Paint2" {
-                        if iface.shift == 1 {
+                        else if actioncode == "CharColorToBox2" {
                             iface.fcolor2 = iface.cc_selector;
                             update_panelbox(sdl_master, &mut iface, 2);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
-                        else if iface.dm_selector == 1 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor2);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 2 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 3 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
-                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 4 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor2);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 5 {
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-
-                    else if actioncode == "Paint3" {
-                        if iface.shift == 1 {
+                        else if actioncode == "CharColorToBox3" {
                             iface.fcolor3 = iface.cc_selector;
                             update_panelbox(sdl_master, &mut iface, 3);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
-                        else if iface.dm_selector == 1 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor3);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 2 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 3 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
-                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 4 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor3);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 5 {
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-
-                    else if actioncode == "Paint4" {
-                        if iface.shift == 1 {
+                        else if actioncode == "CharColorToBox4" {
                             iface.fcolor4 = iface.cc_selector;
                             update_panelbox(sdl_master, &mut iface, 4);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
-                        else if iface.dm_selector == 1 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor4);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 2 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 3 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
-                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 4 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor4);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 5 {
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                    }
-
-                    else if actioncode == "Paint5" {
-                        if iface.shift == 1 {
+                        else if actioncode == "CharColorToBox5" {
                             iface.fcolor5 = iface.cc_selector;
                             update_panelbox(sdl_master, &mut iface, 5);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
-                        else if iface.dm_selector == 1 {
+
+                        else if actioncode == "BackgroundColorToBox1" { //Directly sets background color pointed by a background color cursor to box 1
+                            iface.bcolor1 = iface.bc_selector;
+                            update_panelbox(sdl_master, &mut iface, 1);
+                        }
+                        else if actioncode == "BackgroundColorToBox2" {
+                            iface.bcolor2 = iface.bc_selector;
+                            update_panelbox(sdl_master, &mut iface, 2);
+                        }
+                        else if actioncode == "BackgroundColorToBox3" {
+                            iface.bcolor3 = iface.bc_selector;
+                            update_panelbox(sdl_master, &mut iface, 3);
+                        }
+                        else if actioncode == "BackgroundColorToBox4" {
+                            iface.bcolor4 = iface.bc_selector;
+                            update_panelbox(sdl_master, &mut iface, 4);
+                        }
+                        else if actioncode == "BackgroundColorToBox5" {
+                            iface.bcolor5 = iface.bc_selector;
+                            update_panelbox(sdl_master, &mut iface, 5);
+                        }
+                        
+                        else if actioncode == "DrawmodeLeft" { //Pushing drawmode one step left
+                            iface.dm_selector = iface.dm_selector-1;
+                            if iface.dm_selector == 0 {iface.dm_selector = 5;}
+                        }
+
+                        else if actioncode == "DrawmodeRight" { //Pushing drawmode one step right
+                            iface.dm_selector = iface.dm_selector+1;
+                            if iface.dm_selector == 6 {iface.dm_selector = 1;}
+                        }
+
+                        else if actioncode == "CcolorSelectorLeft" {
+                            iface.cc_selector = iface.cc_selector-1;
+                            if iface.cc_selector == 0 {iface.cc_selector = 16;}
+                        }
+                        else if actioncode == "CcolorSelectorRight" {
+                            iface.cc_selector = iface.cc_selector+1;
+                            if iface.cc_selector == 17 {iface.cc_selector = 1;}
+                        }
+
+                        else if actioncode == "BcolorSelectorLeft" {
+                            iface.bc_selector = iface.bc_selector-1;
+                            if iface.bc_selector == 0 {iface.bc_selector = 16;}
+                        }
+                        else if actioncode == "BcolorSelectorRight" {
+                            //println!("wir sind hier");
+                            iface.bc_selector = iface.bc_selector+1;
+                            if iface.bc_selector == 17 {iface.bc_selector = 1;}
+                        }
+                        else if actioncode == "SelectChar" { //Select char for charbox which is pointed by the charbox selector
+                            iface.program_mode = 2;
+                            iface.message = "Select character by using arrow keys and space, esc to cancel".to_string();
+                        }
+
+                        else if actioncode == "BoxSelectorLeft" {
+                            iface.box_selector = iface.box_selector-1;
+                            if iface.box_selector == 0 {iface.box_selector = 5;}
+                        }
+                        else if actioncode == "BoxSelectorRight" {
+                            iface.box_selector = iface.box_selector+1;
+                            if iface.box_selector == 6 {iface.box_selector = 1;}
+                        }
+                        else if actioncode == "SelectBox1" {
+                            iface.box_selector = 1;
+                        }
+                        else if actioncode == "SelectBox2" {
+                            iface.box_selector = 2;
+                        }
+                        else if actioncode == "SelectBox3" {
+                            iface.box_selector = 3;
+                        }
+                        else if actioncode == "SelectBox4" {
+                            iface.box_selector = 4;
+                        }
+                        else if actioncode == "SelectBox5" {
+                            iface.box_selector = 5;
+                        }
+                        
+                        else if actioncode == "PaintChar1" {
+                            //println!("kursorin koordinaatit: {}, {}", iface.cursor_x, iface.cursor_y);
+                            //println!("gridin koordinaatit: {}, {}", gridvars.grid_x, gridvars.grid_y);
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
+                        }
+                        else if actioncode == "PaintChar2" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
+                        }
+                        else if actioncode == "PaintChar3" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
+                        }
+                        else if actioncode == "PaintChar4" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
+                        }
+                        else if actioncode == "PaintChar5" {
                             gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
                             change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
+                        }
+
+                        else if actioncode == "ChangeBC1" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor1);
+                        }
+                        else if actioncode == "ChangeBC2" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor2);
+                        }
+                        else if actioncode == "ChangeBC3" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor3);
+                        }
+                        else if actioncode == "ChangeBC4" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor4);
+                        }
+                        else if actioncode == "ChangeBC5" {
                             gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor5);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
-                        else if iface.dm_selector == 2 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
+
+                        else if actioncode == "ChangeFC1" {
+                            //Changing foreground color but not character
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
+                        }
+                        else if actioncode == "ChangeFC2" {
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
+                        }
+                        else if actioncode == "ChangeFC3" {
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
+                        }
+                        else if actioncode == "ChangeFC4" {
+                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
+                        }
+                        else if actioncode == "ChangeFC5" {
                             change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
-                        else if iface.dm_selector == 3 {
+
+                        else if actioncode == "PaintCharNC1" {
+                            //Changing character without changing its color
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
+                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                        }
+                        else if actioncode == "PaintCharNC2" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
+                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                        }
+                        else if actioncode == "PaintCharNC3" {
+                            //Changing character without changing its color
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
+                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                        }
+                        else if actioncode == "PaintCharNC4" {
+                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
+                            change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
+                        }
+                        else if actioncode == "PaintCharNC5" {
                             gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
                             change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 4 {
-                            gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor5);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                        }
-                        else if iface.dm_selector == 5 {
-                            change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
-                            render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                         }
                     }
 
-                    else if actioncode == "SelectCharColor" {
-                        iface.message = "Select charbox for character color".to_string();
-                        iface.shift = 2;
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    
-                    else if actioncode == "DrawmodeLeft" { //Pushing drawmode one step left
-                        iface.dm_selector = iface.dm_selector-1;
-                        if iface.dm_selector == 0 {iface.dm_selector = 5;}
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-
-                    else if actioncode == "DrawmodeRight" { //Pushing drawmode one step right
-                        iface.dm_selector = iface.dm_selector+1;
-                        if iface.dm_selector == 6 {iface.dm_selector = 1;}
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-
-                    else if actioncode == "CcolorSelectorLeft" {
-                        iface.cc_selector = iface.cc_selector-1;
-                        if iface.cc_selector == 0 {iface.cc_selector = 16;}
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "CcolorSelectorRight" {
-                        iface.cc_selector = iface.cc_selector+1;
-                        if iface.cc_selector == 17 {iface.cc_selector = 1;}
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-
-                    else if actioncode == "BcolorSelectorLeft" {
-                        iface.bc_selector = iface.bc_selector-1;
-                        if iface.bc_selector == 0 {iface.bc_selector = 16;}
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "BcolorSelectorRight" {
-                        println!("wir sind hier");
-                        iface.bc_selector = iface.bc_selector+1;
-                        if iface.bc_selector == 17 {iface.bc_selector = 1;}
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    
-                    else if actioncode == "PaintChar1" {
-                        //println!("kursorin koordinaatit: {}, {}", iface.cursor_x, iface.cursor_y);
-                        //println!("gridin koordinaatit: {}, {}", gridvars.grid_x, gridvars.grid_y);
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintChar2" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintChar3" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintChar4" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintChar5" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-
-                    else if actioncode == "ChangeBC1" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor1);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeBC2" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor2);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeBC3" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor3);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeBC4" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor4);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeBC5" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].backcol = Some(iface.bcolor5);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-
-                    else if actioncode == "ChangeFC1" {
-                        //Changing foreground color but not character
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor1);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeFC2" {
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor2);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeFC3" {
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor3);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeFC4" {
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor4);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "ChangeFC5" {
-                        change_gridunit_texture(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize, iface.fcolor5);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-
-                    else if actioncode == "PaintCharNC1" {
-                        //Changing character without changing its color
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char1.clone();
-                        change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintCharNC2" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char2.clone();
-                        change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintCharNC3" {
-                        //Changing character without changing its color
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char3.clone();
-                        change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintCharNC4" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char4.clone();
-                        change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
-                    }
-                    else if actioncode == "PaintCharNC5" {
-                        gridvec_obj.gridvector[iface.cursor_x as usize][iface.cursor_y as usize].charstring = iface.char5.clone();
-                        change_gridunit_char(gridvec_obj, sdl_master, iface.cursor_x as usize, iface.cursor_y as usize);
-                        render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
+                    else if iface.program_mode == 2 {
+                        if keycode == Keycode::Right {
+                            if (iface.charselector_x as i16) < iface.charscreenx-1 {
+                                iface.charselector_x += 1;
+                                //The following prevents cursor for stepping to the empty areas of selection (if 222 chars)
+                                if (iface.charselector_y == 11) && (iface.charselector_x == 2) {
+                                    iface.charselector_x -= 1;
+                                }
+                            }
+                        }
+                        else if keycode == Keycode::Left {
+                            if iface.charselector_x > 0 {
+                                iface.charselector_x -= 1;
+                            }
+                        }
+                        else if keycode == Keycode::Down {
+                            if (iface.charselector_y as i16) < (iface.charscreeny-1) {
+                                if (iface.charselector_y+1)*(iface.charscreenx as u8)+iface.charselector_x < 222 {
+                                    //222 = number of ANSI chars on the selector screen (no control characters in the beginning, no later cc)
+                                    iface.charselector_y += 1;
+                                }
+                            }
+                        }
+                        else if keycode == Keycode::Up {
+                            if iface.charselector_y > 0 {
+                                iface.charselector_y -= 1;
+                                
+                            }
+                        }
+                        else if keycode == Keycode::Space || keycode == Keycode::RCtrl {
+                            //Converting x & y values to a one dimensional vector index
+                            let tableindex = iface.charselector_y*(iface.charscreenx as u8)+iface.charselector_x+33;
+                            println!("{}", iface.charselector_y);
+                            if let Some(selchar) = iface.chartable.get(&tableindex) {
+                                println!("{}", selchar);
+                                if iface.box_selector == 1 {
+                                    iface.char1 = selchar.to_string();
+                                    update_panelbox(sdl_master, &mut iface, 1);
+                                }
+                                else if iface.box_selector == 2 {
+                                    iface.char2 = selchar.to_string();
+                                    update_panelbox(sdl_master, &mut iface, 2);
+                                }
+                                else if iface.box_selector == 3 {
+                                    iface.char3 = selchar.to_string();
+                                    update_panelbox(sdl_master, &mut iface, 3);
+                                }
+                                else if iface.box_selector == 4 {
+                                    iface.char4 = selchar.to_string();
+                                    update_panelbox(sdl_master, &mut iface, 4);
+                                }
+                                else if iface.box_selector == 5 {
+                                    iface.char5 = selchar.to_string();
+                                    update_panelbox(sdl_master, &mut iface, 5);
+                                }
+                            }
+                            iface.program_mode = 1;
+                        }
+                        else if keycode == Keycode::Escape {
+                            iface.program_mode = 1;
+                        }
                     }
                     if iface.shift > 0 {iface.shift = iface.shift-1;}
                     actioncode = String::from("");
+                    render_screen(font_path, &mut sdl_master, &mut gridvec_obj, &mut gridvars, &mut iface)?;
                 }
-
                 /*
                 Event::KeyDown { keycode: Some(Keycode::Right), repeat: false, .. } => {
                     game.toggle_state();
@@ -855,7 +1038,10 @@ impl Gridunit {
 struct Interface {
     cursor_x: i16,
     cursor_y: i16,
-    shift: u8, //For two stage commands. 2 = shift turned on during this iteration, 1 = shift is active during this iteration, 0 = no shift
+    charselector_x: u8,
+    charselector_y: u8,
+    shift: u8, //For two stage commands. 2 = shift turned on during this iteration, 1 = shift is active during this iteration, 0 = no shift. Shift variable is automatically decremented, and shift = 2 is the only manual assignment
+    box_selector: u8, //char box selector
     cc_selector: u8, //character color
     bc_selector: u8, //background color
     dm_selector: u8, //drawmode
@@ -882,7 +1068,11 @@ struct Interface {
     message: String,
     keys: HashMap<String, String>,
     chartable: HashMap<u8, String>,
-//    drawmode_img: Option<sdl2::render::Texture>,
+    previous_com: String,
+    program_mode: u8,
+    ansi_char_vec: Vec<sdl2::render::Texture>,
+    charscreenx: i16,
+    charscreeny: i16,
 }
 
 #[cfg(feature = "unsafe_textures")]
@@ -922,6 +1112,23 @@ fn change_gridunit_char<'a>(gridarg: &mut Gridvec, arg1: &'a mut SDLMasterVars, 
     Ok(())
 }
 
+
+//A function which fills ansi_char_vec with textures of all ansi characters
+#[cfg(feature = "unsafe_textures")]
+fn init_ansi_textures(mut iface: &mut Interface, sdl_arg: &mut SDLMasterVars) -> Result<(), String> {
+    for i in 0..255 {
+        //if i == 0 || i == 32 || i == 255 {continue;}
+        if let Some(getchar) = iface.chartable.get(&i) {
+            //println!("{}", getchar);
+            let ansichar: &str = &getchar;
+            let ansisurface = sdl_arg.font.render(ansichar).blended(Color::RGBA(255, 255, 255, 255)).map_err(|e| e.to_string())?;
+            let ansitexture = sdl_arg.texture_creator.create_texture_from_surface(ansisurface).map_err(|e| e.to_string())?;
+            iface.ansi_char_vec.push(ansitexture);
+            //These textures will live as long as the program is running so they will not be explicitely destroyed
+        }
+    }
+    Ok(())
+}
 
 // kun oli palautusarvo, sulkujen jälkeen tuli -> Vec<Gridunit> {
 #[cfg(feature = "unsafe_textures")]
@@ -1123,13 +1330,15 @@ fn main() -> Result<(), String> {
     sdl_masterobj.colortable.insert(15, Color::RGBA(171, 173, 170, 255));
     sdl_masterobj.colortable.insert(16, Color::RGBA(85, 86, 85, 255));
 
-    let mut interfaceobj = Interface {cursor_x: 0,  cursor_y: 0, shift: 0, cc_selector: 1, bc_selector: 1, dm_selector: 1,
+    let mut interfaceobj = Interface {cursor_x: 0,  cursor_y: 0, charselector_x: 0, charselector_y: 0,
+                                      shift: 0, box_selector: 1, cc_selector: 1, bc_selector: 1, dm_selector: 1,
                                       fcolor1: 3, fcolor2: 4, fcolor3: 5, fcolor4: 6, fcolor5: 7,
                                       bcolor1: 4, bcolor2: 1, bcolor3: 2, bcolor4: 15, bcolor5: 16,
                                       panelbox1: None, panelbox2: None, panelbox3: None, panelbox4: None, panelbox5: None,
                                       char1: "#".to_string(), char2: "▓".to_string(), char3: "▒".to_string(),
                                       char4: "░".to_string(), char5: "█".to_string(), message: "".to_string(),
-                                      keys: HashMap::new(), chartable: HashMap::new()};
+                                      keys: HashMap::new(), chartable: HashMap::new(), previous_com: "".to_string(),
+                                      program_mode: 1, ansi_char_vec: vec![], charscreenx: 20, charscreeny: 12};
 
     interfaceobj.keys.insert(String::from("Z"), String::from("Paint1"));
     interfaceobj.keys.insert(String::from("X"), String::from("Paint2"));
@@ -1144,19 +1353,269 @@ fn main() -> Result<(), String> {
     interfaceobj.keys.insert(String::from("D"), String::from("BcolorSelectorLeft"));
     interfaceobj.keys.insert(String::from("F"), String::from("BcolorSelectorRight"));
     interfaceobj.keys.insert(String::from("T"), String::from("SelectCharColor"));
+    interfaceobj.keys.insert(String::from("G"), String::from("SelectBackgroundColor"));
+    interfaceobj.keys.insert(String::from("Q"), String::from("BoxSelectorLeft"));
+    interfaceobj.keys.insert(String::from("W"), String::from("BoxSelectorRight"));
+    interfaceobj.keys.insert(String::from("1"), String::from("SelectChar"));
 
-    interfaceobj.chartable.insert(0, String::from("NoAvailable"));
+
+    //NOTE: The current font has no characters 0-32 and they are not used. If they are taken into use, this will have some implications for the code, especially for some loops plus controlling the character selection cursor
+    interfaceobj.chartable.insert(0, String::from(" ")); //Control char
     interfaceobj.chartable.insert(1, String::from("☺"));
     interfaceobj.chartable.insert(2, String::from("☻"));
-    interfaceobj.chartable.insert(3, String::from("♥"));
+    interfaceobj.chartable.insert(3, String::from("♥")); 
     interfaceobj.chartable.insert(4, String::from("♦"));
     interfaceobj.chartable.insert(5, String::from("♣"));
     interfaceobj.chartable.insert(6, String::from("♠"));
     interfaceobj.chartable.insert(7, String::from("•"));
     interfaceobj.chartable.insert(8, String::from("◘"));
-    interfaceobj.chartable.insert(9, String::from("♂"));
-    interfaceobj.chartable.insert(10, String::from("♀"));
-    
+    interfaceobj.chartable.insert(9, String::from("○"));
+    interfaceobj.chartable.insert(10, String::from("◙"));
+    interfaceobj.chartable.insert(11, String::from("♂"));
+    interfaceobj.chartable.insert(12, String::from("♀"));
+    interfaceobj.chartable.insert(13, String::from("♪"));
+    interfaceobj.chartable.insert(14, String::from("♫"));
+    interfaceobj.chartable.insert(15, String::from("☼"));
+    interfaceobj.chartable.insert(16, String::from("►"));
+    interfaceobj.chartable.insert(17, String::from("◄"));
+    interfaceobj.chartable.insert(18, String::from("↕"));
+    interfaceobj.chartable.insert(19, String::from("‼"));
+    interfaceobj.chartable.insert(20, String::from("¶"));
+    interfaceobj.chartable.insert(21, String::from("§"));
+    interfaceobj.chartable.insert(22, String::from("▬"));
+    interfaceobj.chartable.insert(23, String::from("↨"));
+    interfaceobj.chartable.insert(24, String::from("↑"));
+    interfaceobj.chartable.insert(25, String::from("↓"));
+    interfaceobj.chartable.insert(26, String::from("→"));
+    interfaceobj.chartable.insert(27, String::from("←"));
+    interfaceobj.chartable.insert(28, String::from("∟"));
+    interfaceobj.chartable.insert(29, String::from("↔"));
+    interfaceobj.chartable.insert(30, String::from("▲"));
+    interfaceobj.chartable.insert(31, String::from("▼"));
+    interfaceobj.chartable.insert(32, String::from(" ")); //Control char
+    interfaceobj.chartable.insert(33, String::from("!"));
+    interfaceobj.chartable.insert(34, String::from("\"")); //Character "
+    interfaceobj.chartable.insert(35, String::from("#"));
+    interfaceobj.chartable.insert(36, String::from("$"));
+    interfaceobj.chartable.insert(37, String::from("%"));
+    interfaceobj.chartable.insert(38, String::from("&"));
+    interfaceobj.chartable.insert(39, String::from("'"));
+    interfaceobj.chartable.insert(40, String::from("("));
+    interfaceobj.chartable.insert(41, String::from(")"));
+    interfaceobj.chartable.insert(42, String::from("*"));
+    interfaceobj.chartable.insert(43, String::from("+"));
+    interfaceobj.chartable.insert(44, String::from(","));
+    interfaceobj.chartable.insert(45, String::from("-"));
+    interfaceobj.chartable.insert(46, String::from("."));
+    interfaceobj.chartable.insert(47, String::from("/"));
+    interfaceobj.chartable.insert(48, String::from("0"));
+    interfaceobj.chartable.insert(49, String::from("1"));
+    interfaceobj.chartable.insert(50, String::from("2"));
+    interfaceobj.chartable.insert(51, String::from("3"));
+    interfaceobj.chartable.insert(52, String::from("4"));
+    interfaceobj.chartable.insert(53, String::from("5"));
+    interfaceobj.chartable.insert(54, String::from("6"));
+    interfaceobj.chartable.insert(55, String::from("7"));
+    interfaceobj.chartable.insert(56, String::from("8"));
+    interfaceobj.chartable.insert(57, String::from("9"));
+    interfaceobj.chartable.insert(58, String::from(":"));
+    interfaceobj.chartable.insert(59, String::from(";"));
+    interfaceobj.chartable.insert(60, String::from("<"));
+    interfaceobj.chartable.insert(61, String::from("="));
+    interfaceobj.chartable.insert(62, String::from(">"));
+    interfaceobj.chartable.insert(63, String::from("?"));
+    interfaceobj.chartable.insert(64, String::from("@"));
+    interfaceobj.chartable.insert(65, String::from("A"));
+    interfaceobj.chartable.insert(66, String::from("B"));
+    interfaceobj.chartable.insert(67, String::from("C"));
+    interfaceobj.chartable.insert(68, String::from("D"));
+    interfaceobj.chartable.insert(69, String::from("E"));
+    interfaceobj.chartable.insert(70, String::from("F"));
+    interfaceobj.chartable.insert(71, String::from("G"));
+    interfaceobj.chartable.insert(72, String::from("H"));
+    interfaceobj.chartable.insert(73, String::from("I"));
+    interfaceobj.chartable.insert(74, String::from("J"));
+    interfaceobj.chartable.insert(75, String::from("K"));
+    interfaceobj.chartable.insert(76, String::from("L"));
+    interfaceobj.chartable.insert(77, String::from("M"));
+    interfaceobj.chartable.insert(78, String::from("N"));
+    interfaceobj.chartable.insert(79, String::from("O"));
+    interfaceobj.chartable.insert(80, String::from("P"));
+    interfaceobj.chartable.insert(81, String::from("Q"));
+    interfaceobj.chartable.insert(82, String::from("R"));
+    interfaceobj.chartable.insert(83, String::from("S"));
+    interfaceobj.chartable.insert(84, String::from("T"));
+    interfaceobj.chartable.insert(85, String::from("U"));
+    interfaceobj.chartable.insert(86, String::from("V"));
+    interfaceobj.chartable.insert(87, String::from("W"));
+    interfaceobj.chartable.insert(88, String::from("X"));
+    interfaceobj.chartable.insert(89, String::from("Y"));
+    interfaceobj.chartable.insert(90, String::from("Z"));
+    interfaceobj.chartable.insert(91, String::from("["));
+    interfaceobj.chartable.insert(92, String::from("\\")); //character \ needs an escape backslash
+    interfaceobj.chartable.insert(93, String::from("]"));
+    interfaceobj.chartable.insert(94, String::from("^"));
+    interfaceobj.chartable.insert(95, String::from("_"));
+    interfaceobj.chartable.insert(96, String::from("`"));
+    interfaceobj.chartable.insert(97, String::from("a"));
+    interfaceobj.chartable.insert(98, String::from("b"));
+    interfaceobj.chartable.insert(99, String::from("c"));
+    interfaceobj.chartable.insert(100, String::from("d"));
+    interfaceobj.chartable.insert(101, String::from("e"));
+    interfaceobj.chartable.insert(102, String::from("f"));
+    interfaceobj.chartable.insert(103, String::from("g"));
+    interfaceobj.chartable.insert(104, String::from("h"));
+    interfaceobj.chartable.insert(105, String::from("i"));
+    interfaceobj.chartable.insert(106, String::from("j"));
+    interfaceobj.chartable.insert(107, String::from("k"));
+    interfaceobj.chartable.insert(108, String::from("l"));
+    interfaceobj.chartable.insert(109, String::from("m"));
+    interfaceobj.chartable.insert(110, String::from("n"));
+    interfaceobj.chartable.insert(111, String::from("o"));
+    interfaceobj.chartable.insert(112, String::from("p"));
+    interfaceobj.chartable.insert(113, String::from("q"));
+    interfaceobj.chartable.insert(114, String::from("r"));
+    interfaceobj.chartable.insert(115, String::from("s"));
+    interfaceobj.chartable.insert(116, String::from("t"));
+    interfaceobj.chartable.insert(117, String::from("u"));
+    interfaceobj.chartable.insert(118, String::from("v"));
+    interfaceobj.chartable.insert(119, String::from("w"));
+    interfaceobj.chartable.insert(120, String::from("x"));
+    interfaceobj.chartable.insert(121, String::from("y"));
+    interfaceobj.chartable.insert(122, String::from("z"));
+    interfaceobj.chartable.insert(123, String::from("{"));
+    interfaceobj.chartable.insert(124, String::from("|"));
+    interfaceobj.chartable.insert(125, String::from("}"));
+    interfaceobj.chartable.insert(126, String::from("~"));
+    interfaceobj.chartable.insert(127, String::from("⌂"));
+    interfaceobj.chartable.insert(128, String::from("Ç"));
+    interfaceobj.chartable.insert(129, String::from("ü"));
+    interfaceobj.chartable.insert(130, String::from("é"));
+    interfaceobj.chartable.insert(131, String::from("â"));
+    interfaceobj.chartable.insert(132, String::from("ä"));
+    interfaceobj.chartable.insert(133, String::from("à"));
+    interfaceobj.chartable.insert(134, String::from("å"));
+    interfaceobj.chartable.insert(135, String::from("ç"));
+    interfaceobj.chartable.insert(136, String::from("ê"));
+    interfaceobj.chartable.insert(137, String::from("ë"));
+    interfaceobj.chartable.insert(138, String::from("è"));
+    interfaceobj.chartable.insert(139, String::from("ï"));
+    interfaceobj.chartable.insert(140, String::from("î"));
+    interfaceobj.chartable.insert(141, String::from("ì"));
+    interfaceobj.chartable.insert(142, String::from("Ä"));
+    interfaceobj.chartable.insert(143, String::from("Å"));
+    interfaceobj.chartable.insert(144, String::from("É"));
+    interfaceobj.chartable.insert(145, String::from("æ"));
+    interfaceobj.chartable.insert(146, String::from("Æ"));
+    interfaceobj.chartable.insert(147, String::from("ô"));
+    interfaceobj.chartable.insert(148, String::from("ö"));
+    interfaceobj.chartable.insert(149, String::from("ò"));
+    interfaceobj.chartable.insert(150, String::from("û"));
+    interfaceobj.chartable.insert(151, String::from("ù"));
+    interfaceobj.chartable.insert(152, String::from("ÿ"));
+    interfaceobj.chartable.insert(153, String::from("Ö"));
+    interfaceobj.chartable.insert(154, String::from("Ü"));
+    interfaceobj.chartable.insert(155, String::from("¢"));
+    interfaceobj.chartable.insert(156, String::from("£"));
+    interfaceobj.chartable.insert(157, String::from("¥"));
+    interfaceobj.chartable.insert(158, String::from("₧"));
+    interfaceobj.chartable.insert(159, String::from("ƒ"));
+    interfaceobj.chartable.insert(160, String::from("á"));
+    interfaceobj.chartable.insert(161, String::from("í"));
+    interfaceobj.chartable.insert(162, String::from("ó"));
+    interfaceobj.chartable.insert(163, String::from("ú"));
+    interfaceobj.chartable.insert(164, String::from("ñ"));
+    interfaceobj.chartable.insert(165, String::from("Ñ"));
+    interfaceobj.chartable.insert(166, String::from("ª"));
+    interfaceobj.chartable.insert(167, String::from("º"));
+    interfaceobj.chartable.insert(168, String::from("¿"));
+    interfaceobj.chartable.insert(169, String::from("⌐"));
+    interfaceobj.chartable.insert(170, String::from("¬"));
+    interfaceobj.chartable.insert(171, String::from("½"));
+    interfaceobj.chartable.insert(172, String::from("¼"));
+    interfaceobj.chartable.insert(173, String::from("¡"));
+    interfaceobj.chartable.insert(174, String::from("«"));
+    interfaceobj.chartable.insert(175, String::from("»"));
+    interfaceobj.chartable.insert(176, String::from("░"));
+    interfaceobj.chartable.insert(177, String::from("▒"));
+    interfaceobj.chartable.insert(178, String::from("▓"));
+    interfaceobj.chartable.insert(179, String::from("│"));
+    interfaceobj.chartable.insert(180, String::from("┤"));
+    interfaceobj.chartable.insert(181, String::from("╡"));
+    interfaceobj.chartable.insert(182, String::from("╢"));
+    interfaceobj.chartable.insert(183, String::from("╖"));
+    interfaceobj.chartable.insert(184, String::from("╕"));
+    interfaceobj.chartable.insert(185, String::from("╣"));
+    interfaceobj.chartable.insert(186, String::from("║"));
+    interfaceobj.chartable.insert(187, String::from("╗"));
+    interfaceobj.chartable.insert(188, String::from("╝"));
+    interfaceobj.chartable.insert(189, String::from("╜"));
+    interfaceobj.chartable.insert(190, String::from("╛"));
+    interfaceobj.chartable.insert(191, String::from("┐"));
+    interfaceobj.chartable.insert(192, String::from("└"));
+    interfaceobj.chartable.insert(193, String::from("┴"));
+    interfaceobj.chartable.insert(194, String::from("┬"));
+    interfaceobj.chartable.insert(195, String::from("├"));
+    interfaceobj.chartable.insert(196, String::from("─"));
+    interfaceobj.chartable.insert(197, String::from("┼"));
+    interfaceobj.chartable.insert(198, String::from("╞"));
+    interfaceobj.chartable.insert(199, String::from("╟"));
+    interfaceobj.chartable.insert(200, String::from("╚"));
+    interfaceobj.chartable.insert(201, String::from("╔"));
+    interfaceobj.chartable.insert(202, String::from("╩"));
+    interfaceobj.chartable.insert(203, String::from("╦"));
+    interfaceobj.chartable.insert(204, String::from("╠"));
+    interfaceobj.chartable.insert(205, String::from("═"));
+    interfaceobj.chartable.insert(206, String::from("╬"));
+    interfaceobj.chartable.insert(207, String::from("╧"));
+    interfaceobj.chartable.insert(208, String::from("╨"));
+    interfaceobj.chartable.insert(209, String::from("╤"));
+    interfaceobj.chartable.insert(210, String::from("╥"));
+    interfaceobj.chartable.insert(211, String::from("╙"));
+    interfaceobj.chartable.insert(212, String::from("╘"));
+    interfaceobj.chartable.insert(213, String::from("╒"));
+    interfaceobj.chartable.insert(214, String::from("╓"));
+    interfaceobj.chartable.insert(215, String::from("╫"));
+    interfaceobj.chartable.insert(216, String::from("╪"));
+    interfaceobj.chartable.insert(217, String::from("┘"));
+    interfaceobj.chartable.insert(218, String::from("┌"));
+    interfaceobj.chartable.insert(219, String::from("█"));
+    interfaceobj.chartable.insert(220, String::from("▄"));
+    interfaceobj.chartable.insert(221, String::from("▌"));
+    interfaceobj.chartable.insert(222, String::from("▐"));
+    interfaceobj.chartable.insert(223, String::from("▀"));
+    interfaceobj.chartable.insert(224, String::from("α"));
+    interfaceobj.chartable.insert(225, String::from("ß"));
+    interfaceobj.chartable.insert(226, String::from("Γ"));
+    interfaceobj.chartable.insert(227, String::from("π"));
+    interfaceobj.chartable.insert(228, String::from("Σ"));
+    interfaceobj.chartable.insert(229, String::from("σ"));
+    interfaceobj.chartable.insert(230, String::from("µ"));
+    interfaceobj.chartable.insert(231, String::from("τ"));
+    interfaceobj.chartable.insert(232, String::from("Φ"));
+    interfaceobj.chartable.insert(233, String::from("Θ"));
+    interfaceobj.chartable.insert(234, String::from("Ω"));
+    interfaceobj.chartable.insert(235, String::from("δ"));
+    interfaceobj.chartable.insert(236, String::from("∞"));
+    interfaceobj.chartable.insert(237, String::from("φ"));
+    interfaceobj.chartable.insert(238, String::from("ε"));
+    interfaceobj.chartable.insert(239, String::from("∩"));
+    interfaceobj.chartable.insert(240, String::from("≡"));
+    interfaceobj.chartable.insert(241, String::from("±"));
+    interfaceobj.chartable.insert(242, String::from("≥"));
+    interfaceobj.chartable.insert(243, String::from("≤"));
+    interfaceobj.chartable.insert(244, String::from("⌠"));
+    interfaceobj.chartable.insert(245, String::from("⌡"));
+    interfaceobj.chartable.insert(246, String::from("÷"));
+    interfaceobj.chartable.insert(247, String::from("≈"));
+    interfaceobj.chartable.insert(248, String::from("°"));
+    interfaceobj.chartable.insert(249, String::from("∙"));
+    interfaceobj.chartable.insert(250, String::from("·"));
+    interfaceobj.chartable.insert(251, String::from("√"));
+    interfaceobj.chartable.insert(252, String::from("ⁿ"));
+    interfaceobj.chartable.insert(253, String::from("²"));
+    interfaceobj.chartable.insert(254, String::from("■"));
+    interfaceobj.chartable.insert(255, String::from(" ")); //Control char
 
     /*
     interfaceobj.keys.insert(String::from("Z"), String::from("PaintCharNC1"));
@@ -1215,10 +1674,7 @@ fn main() -> Result<(), String> {
     //Tämän voisi varmaan tehdä iteraattoreillakin??
     for i in 0..(gridvars.grid_x) {
         for _ in 0..(gridvars.grid_y) {
-            gridvector_obj.gridvector[i as usize].push(Gridunit {charstring: "".to_string(),
-                                                        forecol: 1,
-                                                        backcol: None,
-                                                        chartexture: None});
+            gridvector_obj.gridvector[i as usize].push(Gridunit {charstring: "".to_string(), forecol: 1, backcol: None, chartexture: None});
         }
     }
 
@@ -1254,3 +1710,29 @@ struct Gridvec<'a> {
 
 */
 
+/*
+            //Rect X = (window's width - char selection box width) / 2
+            let mut rowlength = 20i16;
+            let mut selectbgrect = Rect::new((((winwidth as i16) - rowlength*gridvars.char_w) / 2) as i32, 80,
+                                             (rowlength*gridvars.char_w) as u32,
+                                             (((222./(rowlength as f32)).ceil() as i16)*(gridvars.char_h+1)) as u32);
+            //222. (255-33) refers to the number of characters without control chars. The dot means it's a float
+            
+            let mut ansirect = Rect::new((((winwidth as i16) - rowlength*gridvars.char_w) / 2) as i32, 80,
+                                         gridvars.char_w as u32, gridvars.char_h as u32);
+            let chars_in_row = winwidth/((gridvars.char_w+1) as u32)*(gridvars.char_w as u32); //Pitääkö tästä miinustaa vielä yksi?
+
+            sdl_master.canvas.set_draw_color(Color::RGBA(117, 117, 117, 255)); //Gray
+            sdl_master.canvas.fill_rect(selectbgrect)?;
+            
+            for i in 33..255 { //Skipping control characters
+
+                sdl_master.canvas.copy(&iface.ansi_char_vec[i as usize], None, ansirect);
+
+                if (ansirect.x as u32 + (2*gridvars.char_w as u32)) > (((((winwidth as i16) - rowlength*gridvars.char_w) / 2) as u32) + (rowlength*gridvars.char_w) as u32)  {
+                    ansirect.y = ansirect.y+(gridvars.char_h as i32)+1;
+                    ansirect.x = (((winwidth as i16) - rowlength*gridvars.char_w) / 2) as i32;
+                }
+                else {ansirect.x = ansirect.x + (gridvars.char_w as i32);}
+            }
+*/
