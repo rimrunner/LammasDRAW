@@ -1,4 +1,6 @@
 /*
+NOTE: English comments are "real comments", Finnish comments are programmer's personal notes to be removed
+
 compile: cargo run --features unsafe_textures
 run: <exefilepath> <ttf-font file path>
 */
