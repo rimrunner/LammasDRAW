@@ -1527,21 +1527,11 @@ fn main() -> Result<(), String> {
         }
     }
 
-    //luo vektori ja lisää geneerisiä yksiköitä ilman clonea
-    //let mut v = Vec::new(); for _ in 0..20 { v.push(Struct {}); }
-
-    //  UUSI EHDOTUS  gridvector: vec![vec![1,2,3],vec![4,5,6]];
-    //HETKINEN!! tarvitseeko vektorin sittenkään olla resizable vai voiko sen tehdä aina uudestaan vanhan pohjalta?
-    //tässä oli ei-dynaaminen esimerkki https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=d1fddc4253bfd15685225bb57e9aed9b
-    
-    //Jos funktio palauttaa arvon, paluutyyppi annetaan nuolen jälkeen. Resultin tehtävä on hoitaa virheet paluutyypin yhteydessä. Resultin OK-puoli (vasen) on jätetty tyhjäksi, ja virheen sattuessa (oikea puoli) palautetaan String -tyyppinen muuttuja (missäkÃ¶hän se määritellään)
-
     println!("linked sdl2_ttf: {}", sdl2::ttf::get_linked_version());  //TTF:n funktio joka palauttaa version
-    //Huutomerkki (println!) tarkoittaa, että kyseessä on makro ja se ajetaan kääntÃ¶ajassa. {} on paikka, mihin pilkun jälkeen annetut arvot tulee
 
     master_function(&mut sdl_masterobj, &mut gridvector_obj, &mut gridvars, &mut interfaceobj)?;  //run on tässä koodissa määritelty funktio
 
-    Ok(()) //Tämä on ilmeisesti std::resultista ja antaa resultin tjsp.
+    Ok(())
 }
 
 #[cfg(not(feature = "unsafe_textures"))]
